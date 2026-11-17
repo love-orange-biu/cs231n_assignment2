@@ -173,12 +173,23 @@ class FullyConnectedNet(object):
                 )
             a1, relu_cache = relu_forward(z1)
             out = a1
+            if self.use_dropout:
+                out,drop_cache = dropout_forward(out, self.dropout_param)
             if self.normalization == "batchnorm":
-                caches.append((fc_cache, bn_cache, relu_cache))
+                if self.use_dropout:
+                    caches.append((fc_cache, bn_cache, relu_cache, drop_cache))
+                else:
+                    caches.append((fc_cache, bn_cache, relu_cache))
             elif self.normalization == "layernorm":
-                caches.append((fc_cache, ln_cache, relu_cache))
+                if self.use_dropout:
+                    caches.append((fc_cache, ln_cache, relu_cache, drop_cache))
+                else:
+                    caches.append((fc_cache, ln_cache, relu_cache))
             else:
-                caches.append((fc_cache, relu_cache))
+                if self.use_dropout:
+                    caches.append((fc_cache, relu_cache, drop_cache))
+                else:
+                    caches.append((fc_cache, relu_cache))
         W = self.params['W' + str(self.num_layers)]
         b = self.params['b' + str(self.num_layers)]
 
@@ -214,11 +225,23 @@ class FullyConnectedNet(object):
         grads['b' + str(self.num_layers)] = db
         for i in reversed(range(self.num_layers - 1)):
             if self.normalization == "batchnorm":
-                fc_cache, bn_cache, relu_cache = caches[i]
+                if self.use_dropout:
+                    fc_cache, bn_cache, relu_cache,drop_cache = caches[i]
+                else:
+                    fc_cache, bn_cache, relu_cache = caches[i]
             elif self.normalization == "layernorm":
-                fc_cache, ln_cache, relu_cache = caches[i]
+                if self.use_dropout:
+                    fc_cache, ln_cache, relu_cache,drop_cache = caches[i]
+                else:
+                    fc_cache, ln_cache, relu_cache = caches[i]
             else:
-                fc_cache, relu_cache = caches[i]
+                if self.use_dropout:
+                    fc_cache,relu_cache,drop_cache = caches[i]
+                else:
+                    fc_cache,relu_cache = caches[i]
+
+            if self.use_dropout:
+                dx = dropout_backward(dx, drop_cache)
             dout = relu_backward(dx, relu_cache)
             if self.normalization == "batchnorm":
                 dout, dgamma, dbeta = batchnorm_backward(
