@@ -549,6 +549,24 @@ def conv_forward_naive(x, w, b, conv_param):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    stride = conv_param["stride"]
+    pad = conv_param["pad"]
+    H1 = 1+(H+2*pad - HH)//stride
+    W1 = 1+(W+2*pad - WW)//stride
+    out = np.zeros((N, F, H1, W1))
+    x_pad = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode='constant')
+    for ii in range(N):
+        for jj in range(F):
+            for kk in range(H1):
+                for lk in range(W1):
+                    h_start = kk*stride
+                    w_start = lk*stride
+                    h_end = h_start+HH
+                    w_end = w_start+WW
+                    window = x_pad[ii,:,h_start:h_end, w_start:w_end]
+                    out[ii,jj,kk,lk] = np.sum(window*w[jj])+b[jj]
 
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -573,7 +591,29 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-
+    x, w, b, conv_param = cache
+    N, C, H, W = x.shape
+    F, C, HH, WW = w.shape
+    stride = conv_param["stride"]
+    pad = conv_param["pad"]
+    N,F,H1 ,W1 = dout.shape
+    dx_pad = np.zeros((N, C, H+2*pad, W+2*pad))
+    dw = np.zeros((F,C,HH,WW))
+    db = np.zeros((F))
+    x_pad = np.pad(x, ((0, 0), (0, 0), (pad, pad), (pad, pad)), mode='constant')
+    for ii in range(N):
+        for jj in range(F):
+            for kk in range(H1):
+                for lk in range(W1):
+                    h_start = kk*stride
+                    w_start = lk*stride
+                    h_end = h_start+HH
+                    w_end = w_start+WW
+                    window =x_pad[ii,:,h_start:h_end, w_start:w_end]
+                    db[jj] += dout[ii,jj,kk,lk]
+                    dw[jj] +=window*dout[ii,jj,kk,lk]
+                    dx_pad[ii, :, h_start:h_end, w_start:w_end] +=dout[ii,jj,kk,lk]*w[jj]
+    dx = dx_pad[:,:,pad:pad+H,pad:pad+W]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
