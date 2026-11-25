@@ -1,7 +1,7 @@
 """This file defines layer types that are commonly used for recurrent neural networks.
 """
 import torch
-
+import numpy as np
 
 def affine_forward(x, w, b):
     """Computes the forward pass for an affine (fully connected) layer.
@@ -43,7 +43,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # TODO: Implement a single forward step for the vanilla RNN.                 #
     ##############################################################################
-
+    next_h = np.tanh(x @ Wx + prev_h @ Wh + b)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -73,7 +73,16 @@ def rnn_forward(x, h0, Wx, Wh, b):
     # input data. You should use the rnn_step_forward function that you defined  #
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
+    N, T, D = x.shape
+    H = h0.shape[1]
 
+    h = np.zeros((N, T, H), dtype=h0.dtype)
+    prev_h = h0
+
+    for t in range(T):
+        next_h = rnn_step_forward(x[:, t, :], prev_h, Wx, Wh, b)
+        h[:, t, :] = next_h
+        prev_h = next_h
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -101,7 +110,7 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using Pytorch's array indexing.         #
     ##############################################################################
-
+    out = W[x]
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -133,7 +142,28 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     # TODO: Implement the forward pass for a single timestep of an LSTM.        #
     # You may want to use the numerically stable sigmoid implementation above.  #
     #############################################################################
+    H = prev_h.shape[1]
 
+    # Calculate activation vector
+    a = x @ Wx + prev_h @ Wh + b
+
+    # Split into four components
+    ai = a[:, :H]
+    af = a[:, H:2 * H]
+    ao = a[:, 2 * H:3 * H]
+    ag = a[:, 3 * H:]
+
+    # Compute gates
+    i = torch.sigmoid(ai)
+    f = torch.sigmoid(af)
+    o = torch.sigmoid(ao)
+    g = torch.tanh(ag)
+
+    # Compute next cell state
+    next_c = f * prev_c + i * g
+
+    # Compute next hidden state
+    next_h = o * torch.tanh(next_c)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -167,7 +197,25 @@ def lstm_forward(x, h0, Wx, Wh, b):
     # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
     # You should use the lstm_step_forward function that you just defined.      #
     #############################################################################
+    N, T, D = x.shape
+    H = h0.shape[1]
 
+    # Initialize hidden states
+    h = h0.new_zeros((N, T, H))
+
+    # Initialize hidden state and cell state
+    prev_h = h0
+    prev_c = torch.zeros_like(h0)
+
+    for t in range(T):
+        next_h, next_c = lstm_step_forward(
+            x[:, t, :], prev_h, prev_c, Wx, Wh, b
+        )
+
+        h[:, t, :] = next_h
+
+        prev_h = next_h
+        prev_c = next_c
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################

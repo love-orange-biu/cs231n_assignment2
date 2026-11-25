@@ -141,7 +141,23 @@ class CaptioningRNN:
         #                                                                          #
         # You also don't have to implement the backward pass.                      #
         ############################################################################
+        # (1) Compute the initial hidden state
+        h0 = features @ W_proj + b_proj
 
+        # (2) Word embedding
+        x, embed_cache = word_embedding_forward(captions_in, W_embed)
+
+        # (3) RNN or LSTM forward
+        if self.cell_type == "rnn":
+            h, rnn_cache = rnn_forward(x, h0, Wx, Wh, b)
+        elif self.cell_type == "lstm":
+            h, rnn_cache = lstm_forward(x, h0, Wx, Wh, b)
+
+        # (4) Temporal affine transformation
+        scores, affine_cache = temporal_affine_forward(h, W_vocab, b_vocab)
+
+        # (5) Temporal softmax loss
+        loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -205,7 +221,32 @@ class CaptioningRNN:
         # NOTE: we are still working over minibatches in this function. Also if   #
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
+        # Initialize the hidden state
+        h = features @ W_proj + b_proj
 
+        # Initialize the first word with <START>
+        prev_word = np.full(N, self._start, dtype=np.int32)
+
+        # Initialize the cell state for LSTM
+        if self.cell_type == "lstm":
+            c = np.zeros_like(h)
+
+        for t in range(max_length):
+            # (1) Word embedding
+            x = W_embed[prev_word]
+
+            # (2) RNN or LSTM step
+            if self.cell_type == "rnn":
+                h, _ = rnn_step_forward(x, h, Wx, Wh, b)
+            elif self.cell_type == "lstm":
+                h, c, _ = lstm_step_forward(x, h, c, Wx, Wh, b)
+
+            # (3) Compute vocabulary scores
+            scores = h @ W_vocab + b_vocab
+
+            # (4) Select the word with the highest score
+            prev_word = np.argmax(scores, axis=1)
+            captions[:, t] = prev_word
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
