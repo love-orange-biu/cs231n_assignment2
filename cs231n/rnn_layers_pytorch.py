@@ -43,7 +43,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # TODO: Implement a single forward step for the vanilla RNN.                 #
     ##############################################################################
-    next_h = np.tanh(x @ Wx + prev_h @ Wh + b)
+    next_h = torch.tanh(x @ Wx + prev_h @ Wh + b)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -76,7 +76,7 @@ def rnn_forward(x, h0, Wx, Wh, b):
     N, T, D = x.shape
     H = h0.shape[1]
 
-    h = np.zeros((N, T, H), dtype=h0.dtype)
+    h = h0.new_zeros((N, T, H))
     prev_h = h0
 
     for t in range(T):
